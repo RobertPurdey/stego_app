@@ -69,8 +69,8 @@ class StegoProcessor:
                 - carrier img size can hold secret (img size + password size + filename length) in LSB bits
                 - carrier img is a .bmp
         Args:
-            carrier_img (ImageTk) - image to carrying the secret image
-            secret_img (ImageTk) - image to hide in carrier image
+            carrier_img (Image) - image to carrying the secret image
+            secret_img (Image) - image to hide in carrier image
             password (str) - Password to be imbedded (used for extracting process)
             filename (str) - Name of the file to extract secret image as (20 char max)
             err_msg (str) - (Optional) If process setup is invalid, an error message is stored
