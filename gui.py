@@ -287,6 +287,7 @@ class StegoGui(Frame):
         Purpose:
             Validates and decodes image if valid
         """
+        StegoProcessor.extract_img(self.img_carrier_hldr, self.img_secret_hldr, "")
 
     def encode_img(self):
         """
