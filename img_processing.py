@@ -1,6 +1,6 @@
 from img_holder import *
 from PIL import Image
-
+from Crypto.Cipher import AES
 
 class StegoProcessor:
     """
@@ -20,6 +20,18 @@ class StegoProcessor:
             0 - if extraction failed
             1 - if extraction passed
         """
+        # todo: potential to move decryption to own class??
+        # Extract encrypted data from stego image
+        stego_load = Image.open(stego_img.fullpath)
+        stego_img.x_max = stego_load.size[0]
+        stego_img.y_max = stego_load.size[1]
+
+
+
+        # decrypt 48 pixels (6 bytes) (filename + file ext)
+        # decrypt 48 pixels (6 bytes) (file size to read in bytes)
+        # decrypt n chars where n is the amount of bytes to read
+
     @staticmethod
     def hide_img(carrier_img, secret_img, stego_img, password, filename, err_msg=0):
         """
@@ -34,6 +46,7 @@ class StegoProcessor:
             1 - if hide passed
         """
         # Load images (PIL Image) and set y/x max into image holders
+        # todo: this could be done by holder class at some point?
         carrier_load = Image.open(carrier_img.fullpath)
         carrier_img.x_max = carrier_load.size[0]
         carrier_img.y_max = carrier_load.size[1]
