@@ -1,6 +1,7 @@
 from img_holder import *
 from PIL import Image
-from Crypto.Cipher import AES
+from Crypto.Util import strxor
+from Crypto.Hash import SHA
 
 class StegoProcessor:
     """
@@ -26,7 +27,24 @@ class StegoProcessor:
         stego_img.x_max = stego_load.size[0]
         stego_img.y_max = stego_load.size[1]
 
+        # Get RGB color channels
+        red_c = stego_load.split()[0]
+        green_c = stego_load.split()[1]
+        blue_c = stego_load.split()[2]
 
+        encrypted_data = open("encrypted_data", "w")
+
+        # read encrypted data into a file
+        for i in range(stego_img.x_max):
+            for j in range(stego_img.y_max):
+                bit_1 = red_c.getpixel(i, j)[-1]
+                bit_2 = green_c.getpixel(i, j)[-1]
+                bit_3 = blue_c.getpixel(i, j)[-1]
+                data = str(bit_1) + str(bit_2) + str(bit_3)
+                encrypted_data.write(data)
+
+        # decrypt encrypted data file
+        key = password
 
         # decrypt 48 pixels (6 bytes) (filename + file ext)
         # decrypt 48 pixels (6 bytes) (file size to read in bytes)
@@ -38,9 +56,9 @@ class StegoProcessor:
         Purpose:
             Hides an image in the carrier image
         Args:
-            carrier_img (ImageTk) - image to carry the secret image
-            secret_img (ImageTk) - image to hide in the carrier image
-            stego_img (ImageTk) - carrier image with the secret image hidden inside
+            carrier_img (Image) - image holder for carrier img
+            secret_img (ImageTk) - image holder for secret image
+            stego_img (ImageTk) - image holder for stego image
         Returns:
             0 - if hide failed
             1 - if hide passed
@@ -57,7 +75,44 @@ class StegoProcessor:
 
         if StegoProcessor.validate_stego_hide(carrier_img, secret_img):
             print("starting to hide image")
+
+            # Carrier RGB
+            car_red_p = carrier_load.split()[0]
+            car_green_p = carrier_load.split()[1]
+            car_blue_p = carrier_load.split()[2]
+
+            # Secret RGB
+            car_red_p = secret_load.split()[0]
+            car_green_p = secret_load.split()[1]
+            car_blue_p = secret_load.split()[2]
+
+            print("car_red_p")
+            # convert ascii to binary
+            #bin_filename = ''.join([bin(ord(ch))[2:].zfill(8) for ch in stego_img.filename])
+            #bin_filefrmt = ''.join([bin(ord(ch))[2:].zfill(8) for ch in stego_img.frmt])
+            #bin_img_bits = ''.join([bin(ord(ch))[2:].zfill(8) for ch in stego_img.frmt])
+            #bin_password = ''.join([bin(ord(ch))[2:].zfill(8) for ch in stego_img.password])
+            stego_pixels = carrier_img.get_pixel_count()
+            ind = -1
+            red_bit = 0
+            green_bit = 1
+            blue_bit = 2
+            for i in range(carrier_img.x_max):
+                for j in range(carrier_img.y_max):
+                    # set last bit of each rgb pixel
+                    for y in range(0, 3):
+                        # set last red bit
+                        if y == red_bit:
+                        # set last green_bit
+                            x=1
+                        if y == green_bit:
+                        # set last blue bit
+                            x=2
+                        if y == blue_bit:
+                            y=3
             # hide image code
+
+            # Add filename to secret image
 
     @staticmethod
     def validate_stego_extract(hidden_img, password):
