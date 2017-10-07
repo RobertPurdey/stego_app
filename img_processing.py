@@ -2,7 +2,7 @@ from img_holder import *
 from PIL import Image
 from Crypto.Util import strxor
 from Crypto.Hash import SHA
-
+from io import BytesIO
 class StegoProcessor:
     """
     Purpose:
@@ -43,7 +43,7 @@ class StegoProcessor:
                 data = str(bit_1) + str(bit_2) + str(bit_3)
                 encrypted_data.write(data)
 
-        # decrypt encrypted data file
+        # decrypt encrypted data file (xor bit string)
         key = password
 
         # decrypt 48 pixels (6 bytes) (filename + file ext)
@@ -82,37 +82,61 @@ class StegoProcessor:
             car_blue_p = carrier_load.split()[2]
 
             # Secret RGB
-            car_red_p = secret_load.split()[0]
-            car_green_p = secret_load.split()[1]
-            car_blue_p = secret_load.split()[2]
+            sec_red_p = secret_load.split()[0]
+            sec_green_p = secret_load.split()[1]
+            sec_blue_p = secret_load.split()[2]
 
+            # Stego RGB image
+            stego_image = Image.new("RGB", (carrier_img.x_max, carrier_img.y_max))
+            stego_pixels = stego_image.load()
+
+            print(str(bin(sec_red_p.getpixel((0, 0)))))
             print("car_red_p")
             # convert ascii to binary
             #bin_filename = ''.join([bin(ord(ch))[2:].zfill(8) for ch in stego_img.filename])
             #bin_filefrmt = ''.join([bin(ord(ch))[2:].zfill(8) for ch in stego_img.frmt])
             #bin_img_bits = ''.join([bin(ord(ch))[2:].zfill(8) for ch in stego_img.frmt])
             #bin_password = ''.join([bin(ord(ch))[2:].zfill(8) for ch in stego_img.password])
-            stego_pixels = carrier_img.get_pixel_count()
-            ind = -1
-            red_bit = 0
-            green_bit = 1
-            blue_bit = 2
+
+            # todo: convert filename / frmt / size into file
+
+            # convert pixels in secret image to bit string file (easy to work with)
+            bit_data = open("bit_data_to_hide", "w")
+            for i in range(secret_img.x_max):
+                for j in range(secret_img.y_max):
+                    r, g, b = carrier_load.getpixel((i, j))
+                    br = bin(r)[2:].zfill(8)
+                    bg = bin(g)[2:].zfill(8)
+                    bb = bin(b)[2:].zfill(8)
+                    b_data = br + bg + bb
+                    bit_data.write(b_data)
+
+            bit_data.close()
+            bit_data = open("bit_data_to_hide", "r")
+
+            # todo: encrypt data (XOR??)
+
+            # store stego data into new image (at this point should have filename, and image size)
             for i in range(carrier_img.x_max):
                 for j in range(carrier_img.y_max):
-                    # set last bit of each rgb pixel
-                    for y in range(0, 3):
-                        # set last red bit
-                        if y == red_bit:
-                        # set last green_bit
-                            x=1
-                        if y == green_bit:
-                        # set last blue bit
-                            x=2
-                        if y == blue_bit:
-                            y=3
-            # hide image code
+                    r, g, b = carrier_load.getpixel((i, j))
+                    dbytes = bit_data.read(3)
+                    bytes_read = len(dbytes)
+                    r = bin(r)
+                    g = bin(g)
+                    b = bin(b)
+                    if bytes_read == 3:
+                        r = str(r)[:-1] + dbytes[0]
+                        g = str(g)[:-1] + dbytes[1]
+                        b = str(b)[:-1] + dbytes[2]
+                    elif bytes_read == 2:
+                        r = str(r)[:-1] + dbytes[0]
+                        g = str(g)[:-1] + dbytes[1]
+                    elif bytes_read == 1:
+                        r = str(r)[:-1] + dbytes[0]
 
-            # Add filename to secret image
+                    stego_pixels[i, j] = (int(r, 2), int(g, 2), int(b, 2))
+            stego_image.save("setgo_image_hidden.bmp")
 
     @staticmethod
     def validate_stego_extract(hidden_img, password):
