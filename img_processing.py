@@ -1,8 +1,6 @@
 from img_holder import *
 from PIL import Image
-from Crypto.Util import strxor
-from Crypto.Hash import SHA
-from io import BytesIO
+
 class StegoProcessor:
     """
     Purpose:
@@ -71,6 +69,7 @@ class StegoProcessor:
         sets_o_24 = 0
         right_24 = pixels_total / 24
         print("expected total sets" + str(right_24))
+        zz = 1
         for i in range(secret_img.x_max):
             for j in range(secret_img.y_max):
                 # read rgb byte string (8 bytes per pixel)
@@ -85,10 +84,16 @@ class StegoProcessor:
                 #print("R =            " + str(int(read_rgb[0:7], 2)))
                # print("G =            " + str(int(read_rgb[8:15], 2)))
                 #print("B =            " + str(int(read_rgb[16:23], 2)))
-                r = int(read_rgb[0:7], 2)
-                g = int(read_rgb[8:15], 2)
-                b = int(read_rgb[16:23], 2)
+                r = int(read_rgb[0:8], 2)
+                g = int(read_rgb[8:16], 2)
+                b = int(read_rgb[16:24], 2)
                 #print("Saving: " + str(r) + ", " + str(g) + ", " + str(b))
+                if zz == 1:
+                    print("EXTRACTING")
+                    print("R: " + read_rgb[0:8])
+                    print("G: " + read_rgb[8:16])
+                    print("B: " + read_rgb[16:24])
+                    zz = 2
                 secret_load[i, j] = (r, g, b)
             if read_rgb == "" or len(read_rgb) < 24:
                 break
@@ -126,7 +131,7 @@ class StegoProcessor:
             print("starting to hide image")
 
             # Stego RGB image
-            stego_image = Image.new("RGB", (carrier_img.x_max, carrier_img.y_max))
+            stego_image = Image.new("RGB", (carrier_img.x_max, carrier_img.y_max), "white")
             stego_pixels = stego_image.load()
 
             # convert ascii to binary for storage data (filename, size, etc)
@@ -139,6 +144,7 @@ class StegoProcessor:
 
             # convert pixels in secret image to bit string file (easy to work with)
             bit_data = open("bit_data_to_hide", "w")
+            x=1
             for i in range(secret_img.x_max):
                 for j in range(secret_img.y_max):
                     r, g, b = secret_load.getpixel((i, j))
@@ -146,6 +152,13 @@ class StegoProcessor:
                     bg = bin(g)[2:].zfill(8)
                     bb = bin(b)[2:].zfill(8)
                     b_data = br + bg + bb
+                    if x == 1:
+                        print("HIDING")
+                        print("R: " + br)
+                        print("G: " + bg)
+                        print("B: " + bb)
+                        x = 2
+
                     bit_data.write(b_data)
 
             bit_data.close()
