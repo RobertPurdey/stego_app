@@ -218,8 +218,6 @@ class StegoGui(Frame):
         Returns:
             n/a
         """
-        # todo: move common code into "open_img_display_window"
-        # todo: how to unset window / image selection when X is clicked by user??
         if self.img_secret_display is not None:
             self.img_secret_display.destroy()
 
@@ -242,8 +240,6 @@ class StegoGui(Frame):
         Returns:
             n/a
         """
-        # todo: move common code into "open_img_display_window"
-        # todo: how to unset window / image selection when X is clicked by user??
         if self.img_carrier_display is not None:
             self.img_carrier_display.destroy()
 
