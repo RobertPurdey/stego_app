@@ -1,7 +1,7 @@
-from img_holder import *
 from PIL import Image
 from img_encryption import ImgEncryption
 import os
+
 
 class StegoProcessor:
     """
@@ -21,7 +21,7 @@ class StegoProcessor:
             0 - if extraction failed
             1 - if extraction passed
         """
-        # Extract encrypted data from stego image
+        # ------------- Extract encrypted data from stego image
         stego_load = Image.open(stego_img.fullpath)
         stego_img.x_max = stego_load.size[0]
         stego_img.y_max = stego_load.size[1]
@@ -41,11 +41,11 @@ class StegoProcessor:
 
         encrypted_data.close()
 
-        # Decrypt XOR bit string data
+        # ------------- Decrypt XOR bit string data
         temp_pass = ''.join([bin(ord(ch))[2:].zfill(8) for ch in password]).zfill(144)  # read 144 bits
         ImgEncryption.xor_decrypt("encrypted_data_extract", "decrypted_data_extract", temp_pass)
 
-        # Start reading extracting and reading decrypted data
+        # ------------- Start reading extracting and reading decrypted data
         decrypted_data = open("decrypted_data_extract", "r")
 
         # read password
@@ -54,7 +54,6 @@ class StegoProcessor:
 
         # FAILED password return early
         if password != bin_password:
-            print("Password don't match")
             decrypted_data.close()
             return ""
 
@@ -155,7 +154,7 @@ class StegoProcessor:
             bin_img_height
 
         # write entire header into file
-        bit_data_file = open("bit_data_file", "w")
+        bit_data_file = open("decrypted_data_extract", "w")
         bit_data_file.write(bin_hdr)
 
         for i in range(secret_img.x_max):
@@ -171,10 +170,10 @@ class StegoProcessor:
         bit_data_file.close()
 
         # ---------------- Encrypt XOR bit string data to hide
-        ImgEncryption.xor_encrypt("bit_data_file", "bit_data_encrypted_file", bin_password)
+        ImgEncryption.xor_encrypt("decrypted_data_extract", "encrypted_data_extract", bin_password)
 
         # ---------------- Start reading data into image carrier
-        bit_data_encrypted_file = open("bit_data_encrypted_file", "r")
+        bit_data_encrypted_file = open("encrypted_data_extract", "r")
 
         # Stego RGB image
         stego_image = Image.new("RGB", (carrier_img.x_max, carrier_img.y_max))
@@ -200,8 +199,8 @@ class StegoProcessor:
         bit_data_encrypted_file.close()
 
         # Delete data binary files (were only temporary and don't want traces of them)
-        os.remove("bit_data_file")
-        os.remove("bit_data_encrypted_file")
+        os.remove("decrypted_data_extract")
+        os.remove("encrypted_data_extract")
 
         return 1
 

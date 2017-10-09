@@ -39,6 +39,9 @@ class StegoGui(Frame):
         # Contains image conversion selection
         self.tlbr_convert_selection = Frame(master, bg="gray")
 
+        # Contains error label
+        self.tlbr_error_display = Frame(master, bg="gray")
+
         # ****************************************************** Buttons
         # Allows selection for the secret image
         self.bttn_select_secret = Button(self.tlbr_img_selection, text="Secret", command=self.select_secret_img)
@@ -67,6 +70,9 @@ class StegoGui(Frame):
 
         # Stego image name label
         self.lbl_stego_image_selection = Label(self.tlbr_stego_filename_selection, text="Stego Image Name:")
+
+        # Error label
+        self.lbl_error = Label(self.tlbr_error_display, text="", fg="red")
 
         # ****************************************************** Text boxes
         # Password entry
@@ -118,6 +124,7 @@ class StegoGui(Frame):
         self.layout_new_filename_selection_toolbar()
         self.layout_stego_filename_selection_toolbar()
         self.layout_conversion_selection_toolbar()
+        self.layout_error_display_toolbar()
 
     def layout_img_selection_toolbar(self):
         """
@@ -186,6 +193,18 @@ class StegoGui(Frame):
         self.bttn_extract.pack(side=LEFT, padx=2, pady=2)
         self.tlbr_convert_selection.pack(side=TOP, fill=X)
 
+    def layout_error_display_toolbar(self):
+        """
+        Purpose:
+            Layout error label toolbar
+        Args:
+            n/a
+        Returns:
+            n/a
+        """
+        self.lbl_error.pack(side=LEFT, padx=2, pady=2)
+        self.tlbr_error_display.pack(side=TOP, fill=X)
+
     def select_secret_img(self):
         """
         Purpose:
@@ -199,14 +218,6 @@ class StegoGui(Frame):
 
         if secret_img_loc != "":
             self.set_secret_img_holder(secret_img_loc)
-
-            # test printing (use for test screenshots)
-            print("Secret Image selected: " + secret_img_loc)
-            print("-- Format:   " + self.img_secret_hldr.frmt)
-            print("-- Path:     " + self.img_secret_hldr.path)
-            print("-- Filename: " + self.img_secret_hldr.filename)
-            print("-- Fullpath: " + self.img_secret_hldr.fullpath)
-
             self.open_secret_img_display_window()
 
     def open_secret_img_display_window(self):
@@ -290,14 +301,6 @@ class StegoGui(Frame):
 
         if carrier_img_loc != "":
             self.set_carrier_img_holder(carrier_img_loc)
-
-            # test printing (use for test screenshots)
-            print("Carrier Image selected: " + carrier_img_loc)
-            print("-- Format: " + self.img_carrier_hldr.frmt)
-            print("-- Path:   " + self.img_carrier_hldr.path)
-            print("-- Filename: " + self.img_carrier_hldr.filename)
-            print("-- Fullpath: " + self.img_carrier_hldr.fullpath)
-
             self.open_carrier_img_display_window()
 
     def get_img_dialog(self):
@@ -350,17 +353,23 @@ class StegoGui(Frame):
         """
         password = self.txtb_pass.get("1.0", 'end-1c')
 
-        if self.img_carrier_hldr is not None and password != "":
+        if self.img_carrier_hldr is not None:
             # teardown
+            if password == "" or len(password) > 18:
+                self.lbl_error["text"] = "Password must be 1-18 characters."
+                return
+
+            self.lbl_error["text"] = ""
             new_filename = StegoProcessor.extract_img(self.img_carrier_hldr, password)
+
             if new_filename != "":
                 self.img_secret_hldr = None
                 self.img_carrier_hldr = None
                 self.open_img_display_window(new_filename, "Extracted Image")
             else:
-                print("Invalid password.")
+                self.lbl_error["text"] = "Invalid password."
         else:
-            print("Carrier file and password must be set in order to extract image.")
+            self.lbl_error["text"] = "Carrier image must be chosen."
 
     def encode_img(self):
         """
@@ -371,17 +380,31 @@ class StegoGui(Frame):
         new_filename = self.txtb_new_img_filename.get("1.0", 'end-1c')
         stego_filename = self.txtb_stego_img_filename.get("1.0", 'end-1c')
         hide_result = 2
-        if self.img_carrier_hldr is not None and self.img_secret_hldr is not None and password != "" and new_filename != "" and stego_filename != "":
+
+        if password == "" or len(password) > 18:
+            self.lbl_error["text"] = "Password must be 1-18 characters."
+            return
+
+        if new_filename == "" or len(new_filename) > 30:
+            self.lbl_error["text"] = "Extracted image name must be between 1-30 characters."
+            return
+
+        if stego_filename == "" or len(stego_filename) > 30:
+            self.lbl_error["text"] = "Stegonagraphy name must be between 1-30 characters."
+            return
+
+        if self.img_carrier_hldr is not None and self.img_secret_hldr is not None:
+            self.lbl_error["text"] = ""
             hide_result = StegoProcessor.hide_img(self.img_carrier_hldr, self.img_secret_hldr, new_filename, stego_filename, password)
         else:
-            print("Ensure carrier img, secret img, password, extracted image name and stego file name are set")
+            self.lbl_error["text"] = "Carrier image and secret image must be chosen."
 
         if hide_result == 1:
             self.open_img_display_window(stego_filename, "Stegonagraphy Image")
             self.img_secret_hldr = None
             self.img_carrier_hldr = None
         elif hide_result == 0:
-            print("Carrier image is too small to hold secret image + image header")
+            self.lbl_error["text"] = "Carrier image is too small to hold secret image + image header"
 
 
 
