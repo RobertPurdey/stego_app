@@ -5,6 +5,7 @@ from PIL import Image
 from PIL import ImageTk
 from img_processing import StegoProcessor
 
+
 class StegoGui(Frame):
     """
         Stegonagraphy GUI.
@@ -79,24 +80,24 @@ class StegoGui(Frame):
 
         # ****************************************************** File holder
         # Secret image to hide
-        self.img_secret_hldr = StegoImgHolder
+        self.img_secret_hldr = None
 
         # Image that will carry the secret image (only init with default holder -- must setup holder)
-        self.img_carrier_hldr = StegoImgHolder
+        self.img_carrier_hldr = None
 
         # Carrier image that now contains the secret image (only init with default holder -- must setup holder)
-        self.img_stego = StegoImgHolder
+        self.img_stego = None
         # ************************************************ End of Instance Variables
 
         # ****************************************************** Sub windows
         # window to show the secret image when one is selected
-        self.img_secret_display = ""
+        self.img_secret_display = None
 
         # window to show the carrier image when one is selected
-        self.img_carrier_display = ""
+        self.img_carrier_display = None
 
         # window to show the secret image when one is selected
-        self.img_stego_display = ""
+        self.img_stego_display = None
 
         # Setup ui layouts
         self.layout_toolbars()
@@ -195,15 +196,18 @@ class StegoGui(Frame):
             n/a
         """
         secret_img_loc = self.get_img_dialog()
-        self.set_secret_img_holder(secret_img_loc)
-        # test printing (use for test screenshots)
-        print("Secret Image selected: " + secret_img_loc)
-        print("-- Format:   " + self.img_secret_hldr.frmt)
-        print("-- Path:     " + self.img_secret_hldr.path)
-        print("-- Filename: " + self.img_secret_hldr.filename)
-        print("-- Fullpath: " + self.img_secret_hldr.fullpath)
 
-        self.open_secret_img_display_window()
+        if secret_img_loc != "":
+            self.set_secret_img_holder(secret_img_loc)
+
+            # test printing (use for test screenshots)
+            print("Secret Image selected: " + secret_img_loc)
+            print("-- Format:   " + self.img_secret_hldr.frmt)
+            print("-- Path:     " + self.img_secret_hldr.path)
+            print("-- Filename: " + self.img_secret_hldr.filename)
+            print("-- Fullpath: " + self.img_secret_hldr.fullpath)
+
+            self.open_secret_img_display_window()
 
     def open_secret_img_display_window(self):
         """
@@ -216,6 +220,9 @@ class StegoGui(Frame):
         """
         # todo: move common code into "open_img_display_window"
         # todo: how to unset window / image selection when X is clicked by user??
+        if self.img_secret_display is not None:
+            self.img_secret_display.destroy()
+
         self.img_secret_display = Toplevel(self.master)
         self.img_secret_display.title("Secret Image")
 
@@ -237,6 +244,9 @@ class StegoGui(Frame):
         """
         # todo: move common code into "open_img_display_window"
         # todo: how to unset window / image selection when X is clicked by user??
+        if self.img_carrier_display is not None:
+            self.img_carrier_display.destroy()
+
         self.img_carrier_display = Toplevel(self.master)
         self.img_carrier_display.title("Carrier Image")
 
@@ -247,15 +257,29 @@ class StegoGui(Frame):
         img.place(x=0, y=0)
         img.pack()
 
-    def open_img_display_window(self, fullpath, img_display):
+    def open_img_display_window(self, filename, window_title):
         """
         Purpose:
-            Opens image window display with chosen image
+            Opens stegonagraphy image result and closes secret image
         Args:
             n/a
         Returns:
             n/a
         """
+        if self.img_secret_display is not None:
+            self.img_secret_display.destroy()
+        if self.img_stego_display is not None:
+            self.img_stego_display.destroy()
+
+        self.img_stego_display = Toplevel(self.master)
+        self.img_stego_display.title(window_title)
+
+        img_load = Image.open(filename + ".bmp")
+        img_render = ImageTk.PhotoImage(img_load)
+        img = Label(self.img_stego_display, image=img_render)
+        img.image = img_render
+        img.place(x=0, y=0)
+        img.pack()
 
     def select_carrier_img(self):
         """
@@ -267,15 +291,18 @@ class StegoGui(Frame):
             str - carrier
         """
         carrier_img_loc = self.get_img_dialog()
-        self.set_carrier_img_holder(carrier_img_loc)
-        # test printing (use for test screenshots)
-        print("Carrier Image selected: " + carrier_img_loc)
-        print("-- Format: " + self.img_carrier_hldr.frmt)
-        print("-- Path:   " + self.img_carrier_hldr.path)
-        print("-- Filename: " + self.img_carrier_hldr.filename)
-        print("-- Fullpath: " + self.img_carrier_hldr.fullpath)
 
-        self.open_carrier_img_display_window()
+        if carrier_img_loc != "":
+            self.set_carrier_img_holder(carrier_img_loc)
+
+            # test printing (use for test screenshots)
+            print("Carrier Image selected: " + carrier_img_loc)
+            print("-- Format: " + self.img_carrier_hldr.frmt)
+            print("-- Path:   " + self.img_carrier_hldr.path)
+            print("-- Filename: " + self.img_carrier_hldr.filename)
+            print("-- Fullpath: " + self.img_carrier_hldr.fullpath)
+
+            self.open_carrier_img_display_window()
 
     def get_img_dialog(self):
         """
@@ -326,7 +353,18 @@ class StegoGui(Frame):
             Validates and decodes image if valid
         """
         password = self.txtb_pass.get("1.0", 'end-1c')
-        StegoProcessor.extract_img(self.img_carrier_hldr, password)
+
+        if self.img_carrier_hldr is not None and password != "":
+            # teardown
+            new_filename = StegoProcessor.extract_img(self.img_carrier_hldr, password)
+            if new_filename != "":
+                self.img_secret_hldr = None
+                self.img_carrier_hldr = None
+                self.open_img_display_window(new_filename, "Extracted Image")
+            else:
+                print("Invalid password.")
+        else:
+            print("Carrier file and password must be set in order to extract image.")
 
     def encode_img(self):
         """
@@ -336,12 +374,19 @@ class StegoGui(Frame):
         password = self.txtb_pass.get("1.0", 'end-1c')
         new_filename = self.txtb_new_img_filename.get("1.0", 'end-1c')
         stego_filename = self.txtb_stego_img_filename.get("1.0", 'end-1c')
-
-        if password != "" and new_filename != "" and stego_filename != "":
-            StegoProcessor.hide_img(self.img_carrier_hldr, self.img_secret_hldr, new_filename, stego_filename, password)
+        hide_result = 2
+        if self.img_carrier_hldr is not None and self.img_secret_hldr is not None and password != "" and new_filename != "" and stego_filename != "":
+            hide_result = StegoProcessor.hide_img(self.img_carrier_hldr, self.img_secret_hldr, new_filename, stego_filename, password)
         else:
-            # todo: print error msg
-            print("FAILURE")
-            x = 2
+            print("Ensure carrier img, secret img, password, extracted image name and stego file name are set")
+
+        if hide_result == 1:
+            self.open_img_display_window(stego_filename, "Stegonagraphy Image")
+            self.img_secret_hldr = None
+            self.img_carrier_hldr = None
+        elif hide_result == 0:
+            print("Carrier image is too small to hold secret image + image header")
+
+
 
 

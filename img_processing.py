@@ -39,7 +39,7 @@ class StegoProcessor:
                 data = str(r) + str(g) + str(b)
 
                 encrypted_data.write(data)
-        #print("PIXELS READ = " + str(pixels_read))
+
         encrypted_data.close()
         encrypted_data = open("encrypted_data_extract", "r")
         decrypted_data = open("decrypted_data_extract", "w")
@@ -47,13 +47,15 @@ class StegoProcessor:
         # Decrypt XOR bit string data to hide
         temp_pass = ''.join([bin(ord(ch))[2:].zfill(8) for ch in password]).zfill(144)  # read 144 bits
         xor_bit_len = len(temp_pass)
-        bytes_read = encrypted_data.read(xor_bit_len)
 
+        # skip XORing password
+        bytes_read = encrypted_data.read(xor_bit_len)
+        decrypted_data.write(bytes_read)
+        bytes_read = encrypted_data.read(xor_bit_len)
         xor_data = ""
-        print("before XOR: " + bytes_read)
 
         while len(bytes_read) > 0:
-            # last read XOR only necessary amount
+            # last read XOR only necessary amount of password
             if len(bytes_read) < xor_bit_len:
                 shrt_pass = temp_pass[0:len(bytes_read)]
                 xor_data = ''.join([StegoProcessor._xormap[a, b] for a, b in zip(bytes_read, shrt_pass)])
@@ -62,11 +64,9 @@ class StegoProcessor:
 
             # next password is bytes read
             temp_pass = bytes_read
-          #  print("after XOR:  " + str(xor_data))
+
             decrypted_data.write(xor_data)
             bytes_read = encrypted_data.read(xor_bit_len)
-          #  print("before XOR: " + bytes_read)
-          #  print("plus XOR:   " + temp_pass)
 
         encrypted_data.close()
         decrypted_data.close()
@@ -76,9 +76,16 @@ class StegoProcessor:
         # read password
         bytes_read_cnt = 0
         bin_password = decrypted_data.read(144)
+        password = ''.join([bin(ord(ch))[2:].zfill(8) for ch in password]).zfill(144)
         bytes_read_cnt += 144
-        password = ''.join(chr(int(bin_password[i:i+8], 2)) for i in range(0, len(bin_password), 8))
-        print("Decoded password: " + str(password))
+
+        # FAILED password return early
+        if password != bin_password:
+            print("Password don't match")
+            decrypted_data.close()
+            return ""
+
+        print("Decoded password: " + str(bin_password))
 
         # read filename len
         bin_filename_len = decrypted_data.read(5)
@@ -115,30 +122,19 @@ class StegoProcessor:
         bytes_read_cnt += 32
         img_bit_data_len = int(bin_img_bit_data_len, 2)
         print("File length: " + str(img_bit_data_len))
-        #bin_password = ''.join([bin(ord(ch))[2:].zfill(8) for ch in "fake"]).zfill(144)  # read 144 bits
-        #bin_filename_len = ''.join([bin(len(new_filename))[2:]]).zfill(5)  # read 5 bits
-        #bin_filename = ''.join([bin(ord(ch))[2:].zfill(8) for ch in new_filename])  # read filename_len bits
-        #bin_file_fmt = ''.join([bin(ord(ch))[2:].zfill(8) for ch in secret_img.frmt])  # read 32 bits
-        #bin_img_width = bin(secret_img.x_max)[2:].zfill(16)  # read 16 bits
-        #bin_img_height = bin(secret_img.y_max)[2:].zfill(16)  # read 16 bits
-        #bin_img_bit_data_len = ''.join([bin(secret_img.get_pixel_count() * 24)[2:]]).zfill(32)  # 2^32-1 pixels max
+
         print("BYTES READ: = " + str(bytes_read_cnt))
+
         # Save decrypted image
+
         # Image to store extracted img
         secret_found = Image.new("RGB", (img_width, img_height))
         secret_load = secret_found.load()
         pixels_read = 0
         pixels_total = img_bit_data_len
-        print("TOTAL PIXELS To read = " + str(pixels_total))
         read_rgb = ""
-        sets_o_24 = 0
-        #right_24 = pixels_total / 24
-        #print("expected total sets" + str(right_24))
-        # for testing strip off expected header length
-        #decrypted_data.read(277)
+
         # create image from extracted img data
-       # print("s image x = " + str(secret_img.x_max))
-        #print("s image y = " + str(secret_img.y_max))
         for i in range(img_width):
             for j in range(img_height):
                 # read rgb byte string (8 bytes per pixel)
@@ -152,6 +148,8 @@ class StegoProcessor:
 
         secret_found.save(filename + file_frmt)
 
+        return filename
+
     @staticmethod
     def hide_img(carrier_img, secret_img, new_filename, stego_img_name, password):
         """
@@ -164,13 +162,10 @@ class StegoProcessor:
             stego_img_name (str) - Stego image filename to save as (always .bmp)
             password (str) - password to encrypt header info + secret img pixels
         Returns:
-            0 - if hide failed
-            1 - if hide passed
+            0  - if hide failed because of invalid size
+            1  - if hide passed
         """
-
-        print("PASSWORD PASSED IN: " + password)
-        # Load images (PIL Image) and set y/x max into image holders
-        # todo: this could be done by holder class at some point?
+        # Load carrier / secret image (PIL Image) and set y/x max into image holders
         carrier_load = Image.open(carrier_img.fullpath)
         carrier_img.x_max = carrier_load.size[0]
         carrier_img.y_max = carrier_load.size[1]
@@ -179,125 +174,119 @@ class StegoProcessor:
         secret_img.x_max = secret_load.size[0]
         secret_img.y_max = secret_load.size[1]
 
-        if StegoProcessor.validate_stego_hide(carrier_img, secret_img):
-            print("starting to hide image")
+        # Error handling return early
+        if StegoProcessor.validate_stego_hide(carrier_img, secret_img) == 0:
+            return 0
+        # end of error handling
 
-            # todo: convert filename / frmt / size into file
-            # hold entire bit data string to hide in carrier image
-            bit_data_file = open("bit_data_file", "w")
+        # todo: convert filename / frmt / size into file
+        # hold entire bit data string to hide in carrier image
+        bit_data_file = open("bit_data_file", "w")
 
-            # convert ascii to binary for storage data
-            # - (password (8-16 bits)
-            # - filename length (8 bits)
-            # - filename
-            # - image width (16 bits) max = 2^16 - 1
-            # - image height (16 bits) max = 2^16 - 1
-            # - image bit data string length (32 bits)
-            # - image bit string
-            # - header length for data
-            # TOTAL Header length for testing =
-            bin_password = ''.join([bin(ord(ch))[2:].zfill(8) for ch in password]).zfill(144)  # read 144 bits
-            bin_filename_len = ''.join([bin(len(new_filename))[2:]]).zfill(5)  # read 5 bits
-            bin_filename = ''.join([bin(ord(ch))[2:].zfill(8) for ch in new_filename])  # read filename_len bits
-            bin_file_fmt = ''.join([bin(ord(ch))[2:].zfill(8) for ch in secret_img.frmt])  # read 32 bits
-            bin_img_width = bin(secret_img.x_max)[2:].zfill(16)  # read 16 bits
-            bin_img_height = bin(secret_img.y_max)[2:].zfill(16)  # read 16 bits
-            bin_img_bit_data_len = ''.join([bin(secret_img.get_pixel_count()*24)[2:]]).zfill(32)  # 2^32-1 pixels max
+        # convert ascii to binary for storage data
+        # - (password (8-16 bits)
+        # - filename length (8 bits)
+        # - filename
+        # - image width (16 bits) max = 2^16 - 1
+        # - image height (16 bits) max = 2^16 - 1
+        # - image bit data string length (32 bits)
+        # - image bit string
+        # - header length for data
+        # TOTAL Header length for testing =
+        bin_password = ''.join([bin(ord(ch))[2:].zfill(8) for ch in password]).zfill(144)  # read 144 bits
+        bin_filename_len = ''.join([bin(len(new_filename))[2:]]).zfill(5)  # read 5 bits
+        bin_filename = ''.join([bin(ord(ch))[2:].zfill(8) for ch in new_filename])  # read filename_len bits
+        bin_file_fmt = ''.join([bin(ord(ch))[2:].zfill(8) for ch in secret_img.frmt])  # read 32 bits
+        bin_img_width = bin(secret_img.x_max)[2:].zfill(16)  # read 16 bits
+        bin_img_height = bin(secret_img.y_max)[2:].zfill(16)  # read 16 bits
+        bin_img_bit_data_len = ''.join([bin(secret_img.get_pixel_count()*24)[2:]]).zfill(32)  # 2^32-1 pixels max
 
-            bin_hdr = bin_password + \
-                bin_filename_len + \
-                bin_filename + \
-                bin_file_fmt + \
-                bin_img_width + \
-                bin_img_height + \
-                bin_img_bit_data_len
+        bin_hdr = bin_password + \
+            bin_filename_len + \
+            bin_filename + \
+            bin_file_fmt + \
+            bin_img_width + \
+            bin_img_height + \
+            bin_img_bit_data_len
 
-            #bin_hdr_len = ''.join([bin(len(bin_hdr))[2:]]).zfill(16)  # read pixel co
-            #bin_hdr = bin_hdr_len + bin_hdr
+        print("Pass:" + bin_password)
+        print("Pass len:" + str(len(bin_password)))
+        print("file len " + bin_filename_len)
+        print("filename " + bin_filename)
+        print("frmt " + bin_file_fmt)
+        print("width: " + bin_img_width)
+        print("height: " + bin_img_height)
+        print("bit data len: " + bin_img_bit_data_len)
 
-            print("Pass:" + bin_password)
-            print("Pass len:" + str(len(bin_password)))
-            print("file len " + bin_filename_len)
-            print("filename " + bin_filename)
-            print("frmt " + bin_file_fmt)
-            print("width: " + bin_img_width)
-            print("height: " + bin_img_height)
-           # print("bit data len: " + bin_img_bit_data_len)
-            #print("hdr len: " + bin_hdr_len)
-           # print(bin_img_bit_data_len)
-            # write entire header into file
-            bit_data_file.write(bin_hdr)
-            print(str(len(bin_hdr)))
-            for i in range(secret_img.x_max):
-                for j in range(secret_img.y_max):
-                    r, g, b = secret_load.getpixel((i, j))
-                    br = bin(r)[2:].zfill(8)
-                    bg = bin(g)[2:].zfill(8)
-                    bb = bin(b)[2:].zfill(8)
-                    b_data = br + bg + bb
-                    bit_data_file.write(b_data)
-                    #if x == 1:
-                    #    print("HIDING")
-                     #   print("R: " + br)
-                      #  print("G: " + bg)
-                     #   print("B: " + bb)
-                     #   x = 2
+        # write entire header into file
+        bit_data_file.write(bin_hdr)
+        print(str(len(bin_hdr)))
+        for i in range(secret_img.x_max):
+            for j in range(secret_img.y_max):
+                r, g, b = secret_load.getpixel((i, j))
 
-            bit_data_file.close()
-            bit_data_file = open("bit_data_file", "r")
-            bit_data_encrypted_file = open("bit_data_encrypted_file", "w")
+                br = bin(r)[2:].zfill(8)
+                bg = bin(g)[2:].zfill(8)
+                bb = bin(b)[2:].zfill(8)
+                b_data = br + bg + bb
 
-            # todo: encrypt data (XOR based off password)
-            # Encrypt XOR bit string data to hide
-            xor_bit_len = len(bin_password)
-            temp_pass = bin_password
+                bit_data_file.write(b_data)
+
+        bit_data_file.close()
+        bit_data_file = open("bit_data_file", "r")
+        bit_data_encrypted_file = open("bit_data_encrypted_file", "w")
+
+        # Encrypt XOR bit string data to hide
+        xor_bit_len = len(bin_password)
+        temp_pass = bin_password
+
+        # skip xoring password - it will be lost if done
+        bytes_read = bit_data_file.read(xor_bit_len)
+        bit_data_encrypted_file.write(bytes_read)
+        bytes_read = bit_data_file.read(xor_bit_len)
+        xor_data = ""
+
+        while len(bytes_read) > 0:
+            # last read XOR only necessary amount of password
+            if len(bytes_read) < xor_bit_len:
+                shrt_pass = temp_pass[0:len(bytes_read)]
+                xor_data = ''.join([StegoProcessor._xormap[a, b] for a, b in zip(bytes_read, shrt_pass)])
+            else:
+                xor_data = ''.join([StegoProcessor._xormap[a, b] for a, b in zip(bytes_read, temp_pass)])
+
+            # new password is XOR_data from previous password
+            temp_pass = xor_data
+
+            bit_data_encrypted_file.write(xor_data)
             bytes_read = bit_data_file.read(xor_bit_len)
-            xor_data = ""
-          #  print("before XOR: " + bytes_read)
 
-            while len(bytes_read) > 0:
-                # last read XOR only necessary amount
-                if len(bytes_read) < xor_bit_len:
-                    shrt_pass = temp_pass[0:len(bytes_read)]
-                    xor_data = ''.join([StegoProcessor._xormap[a, b] for a, b in zip(bytes_read, shrt_pass)])
-                else:
-                    xor_data = ''.join([StegoProcessor._xormap[a, b] for a, b in zip(bytes_read, temp_pass)])
+        bit_data_file.close()
+        bit_data_encrypted_file.close()
+        bit_data_encrypted_file = open("bit_data_encrypted_file", "r")
 
-                # new password is XOR_data from previous password
-                temp_pass = xor_data
-                #xor_data = xor_data[::-1]
-               # xor_data = binascii.a2b_qp(xor_data).decode()
-               # print("after XOR:  " + str(xor_data))
-                bit_data_encrypted_file.write(xor_data)
-                bytes_read = bit_data_file.read(xor_bit_len)
-              #  print("before XOR: " + bytes_read)
-               # print("plus XOR:   " + temp_pass)
+        # Stego RGB image
+        stego_image = Image.new("RGB", (carrier_img.x_max, carrier_img.y_max))
+        stego_pixels = stego_image.load()
 
-            bit_data_file.close()
-            bit_data_encrypted_file.close()
-            bit_data_encrypted_file = open("bit_data_encrypted_file", "r")
+        # store stego data into new image
+        for i in range(carrier_img.x_max):
+            for j in range(carrier_img.y_max):
+                r, g, b = carrier_load.getpixel((i, j))
+                dbytes = bit_data_encrypted_file.read(3)
+                r = bin(r)
+                g = bin(g)
+                b = bin(b)
+                # write in secret image bits
+                if len(dbytes) == 3:
+                    r = str(r)[:-1] + dbytes[0]
+                    g = str(g)[:-1] + dbytes[1]
+                    b = str(b)[:-1] + dbytes[2]
 
-            # Stego RGB image
-            stego_image = Image.new("RGB", (carrier_img.x_max, carrier_img.y_max))
-            stego_pixels = stego_image.load()
+                stego_pixels[i, j] = (int(r, 2), int(g, 2), int(b, 2))
 
-            # store stego data into new image
-            for i in range(carrier_img.x_max):
-                for j in range(carrier_img.y_max):
-                    r, g, b = carrier_load.getpixel((i, j))
-                    dbytes = bit_data_encrypted_file.read(3)
-                    r = bin(r)
-                    g = bin(g)
-                    b = bin(b)
-                    # write in secret image bits
-                    if len(dbytes) == 3:
-                        r = str(r)[:-1] + dbytes[0]
-                        g = str(g)[:-1] + dbytes[1]
-                        b = str(b)[:-1] + dbytes[2]
+        stego_image.save(stego_img_name + carrier_img.frmt)
 
-                    stego_pixels[i, j] = (int(r, 2), int(g, 2), int(b, 2))
-
-            stego_image.save(stego_img_name + carrier_img.frmt)
+        return 1
 
     @staticmethod
     def validate_stego_extract(hidden_img, password):
@@ -315,38 +304,36 @@ class StegoProcessor:
         return 1
 
     @staticmethod
-    def validate_stego_hide(carrier_img, secret_img):#, password, filename, err_msg=0):
+    def validate_stego_hide(carrier_img, secret_img):
         """
         Purpose:
             Validates secret image can be hidden in the carriers image:
-                - carrier img size can hold secret (img size + password size + filename length) in LSB bits
-                - carrier img is a .bmp
+                - carrier img size can hold secret (img bits + img header bits)
         Args:
             carrier_img (Image) - image to carrying the secret image
             secret_img (Image) - image to hide in carrier image
-            password (str) - Password to be imbedded (used for extracting process)
-            filename (str) - Name of the file to extract secret image as (20 char max)
-            err_msg (str) - (Optional) If process setup is invalid, an error message is stored
+            err_msg (str) - message to store any errors in
         Returns:
-            0 - if invalid for stego hide processing
+            0 - if invalid size
             1 - if valid for stego hide processing
         """
         is_valid = 0
 
         # Validate all data can be hidden inside the carrier image
-        carrier_holder_bits = carrier_img.get_pixel_count() * 3
-        secret_bits_to_hide = (secret_img.get_pixel_count() * 24)# + str((len(5) + len(10) * 8))
+        carrier_holder_bits = carrier_img.get_pixel_count() * 3 / 8
+        # Max space required for image header
+        img_header_max = 485 / 8
+        secret_bits_to_hide = (secret_img.get_pixel_count() * 3) + img_header_max
 
         if carrier_holder_bits < secret_bits_to_hide:
-            print("Secret Image too big!")
-            print("Carrier = " + str(carrier_holder_bits))
-            print("Secret  = " + str(secret_bits_to_hide))
-
-        # All validation passed
-        is_valid = 1
+            size_diff = str(secret_bits_to_hide - carrier_holder_bits)
+            is_valid = 0
+        else:
+            # All validation passed
+            is_valid = 1
 
         # todo: right actual validate logic
-        return 1
+        return is_valid
 
         #print("holder 1: " + carrier_img.size + " -- holder 2: " + secret_img.size)
         #if carrier_img.size <= secret_img.size:
