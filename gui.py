@@ -24,16 +24,19 @@ class StegoGui(Frame):
 
         # ****************************************************** Toolbars
         # Contains image selection
-        self.tlbr_img_selection = Frame(master, bg="purple")
+        self.tlbr_img_selection = Frame(master, bg="gray")
 
         # Contains password selection
-        self.tlbr_pass_selection = Frame(master, bg="green")
+        self.tlbr_pass_selection = Frame(master, bg="gray")
+
+        # Contains new image filename
+        self.tlbr_new_filename_selection = Frame(master, bg="gray")
+
+        # Contains stego image filename
+        self.tlbr_stego_filename_selection = Frame(master, bg="gray")
 
         # Contains image conversion selection
-        self.tlbr_convert_selection = Frame(master, bg="red")
-
-        # Contains encryption type election
-        self.tlbr_encrypt_selection = Frame(master, bg="yellow")
+        self.tlbr_convert_selection = Frame(master, bg="gray")
 
         # ****************************************************** Buttons
         # Allows selection for the secret image
@@ -50,22 +53,29 @@ class StegoGui(Frame):
 
         # ****************************************************** Labels
         # Image selection label
-        self.lbl_img_selection = Label(self.tlbr_img_selection, text="Select Image: ")
+        self.lbl_img_selection = Label(self.tlbr_img_selection, text="Select Image:")
 
         # Password choice label
-        self.lbl_pass_selection = Label(self.tlbr_pass_selection, text="Select Password: ")
+        self.lbl_pass_selection = Label(self.tlbr_pass_selection, text="Select Password:")
 
         # Conversion type label
-        self.lbl_conversion_selection = Label(self.tlbr_convert_selection, text="Select Conversion: ")
+        self.lbl_conversion_selection = Label(self.tlbr_convert_selection, text="Select Conversion:")
 
-        # Encryption type label
-        self.lbl_encryption_selection = Label(self.tlbr_encrypt_selection, text="Select Encryption: ")
+        # New image name label
+        self.lbl_new_image_selection = Label(self.tlbr_new_filename_selection, text="Extracted Image Name:")
+
+        # Stego image name label
+        self.lbl_stego_image_selection = Label(self.tlbr_stego_filename_selection, text="Stego Image Name:")
 
         # ****************************************************** Text boxes
         # Password entry
-        self.txtb_pass = Entry(self.tlbr_pass_selection)
+        self.txtb_pass = Text(self.tlbr_pass_selection, height=1, width=35)
 
-        # todo: robert add radio buttons for encryption type
+        # New image filename entry
+        self.txtb_new_img_filename = Text(self.tlbr_new_filename_selection, height=1, width=35)
+
+        # Stego image filename entry
+        self.txtb_stego_img_filename = Text(self.tlbr_stego_filename_selection, height=1, width=35)
 
         # ****************************************************** File holder
         # Secret image to hide
@@ -104,6 +114,8 @@ class StegoGui(Frame):
         """
         self.layout_img_selection_toolbar()
         self.layout_password_selection_toolbar()
+        self.layout_new_filename_selection_toolbar()
+        self.layout_stego_filename_selection_toolbar()
         self.layout_conversion_selection_toolbar()
 
     def layout_img_selection_toolbar(self):
@@ -115,8 +127,8 @@ class StegoGui(Frame):
         Returns:
             n/a
         """
-        self.lbl_img_selection.pack(side=LEFT, padx=2, pady=2)
-        self.bttn_select_carrier.pack(side=LEFT, padx=2, pady=2)
+        self.lbl_img_selection.pack(side=LEFT, padx=(55, 0), pady=2)
+        self.bttn_select_carrier.pack(side=LEFT, padx=4, pady=2)
         self.bttn_select_secret.pack(side=LEFT, padx=2, pady=2)
         self.tlbr_img_selection.pack(side=TOP, fill=X)
 
@@ -129,9 +141,35 @@ class StegoGui(Frame):
         Returns:
             n/a
         """
-        self.lbl_pass_selection.pack(side=LEFT, padx=2, pady=2)
-        self.txtb_pass.pack(side=LEFT, padx=2, pady=2)
+        self.lbl_pass_selection.pack(side=LEFT, padx=(37, 0), pady=2)
+        self.txtb_pass.pack(side=LEFT, padx=4, pady=2)
         self.tlbr_pass_selection.pack(side=TOP, fill=X)
+
+    def layout_new_filename_selection_toolbar(self):
+        """
+        Purpose:
+            Layout password selection toolbar
+        Args:
+            n/a
+        Returns:
+            n/a
+        """
+        self.lbl_new_image_selection.pack(side=LEFT, padx=2, pady=2)
+        self.txtb_new_img_filename.pack(side=LEFT, padx=2, pady=2)
+        self.tlbr_new_filename_selection.pack(side=TOP, fill=X)
+
+    def layout_stego_filename_selection_toolbar(self):
+        """
+        Purpose:
+            Layout password selection toolbar
+        Args:
+            n/a
+        Returns:
+            n/a
+        """
+        self.lbl_stego_image_selection.pack(side=LEFT, padx=(20, 0), pady=2)
+        self.txtb_stego_img_filename.pack(side=LEFT, padx=4, pady=2)
+        self.tlbr_stego_filename_selection.pack(side=TOP, fill=X)
 
     def layout_conversion_selection_toolbar(self):
         """
@@ -142,8 +180,8 @@ class StegoGui(Frame):
         Returns:
             n/a
         """
-        self.lbl_conversion_selection.pack(side=LEFT, padx=2, pady=2)
-        self.bttn_hide.pack(side=LEFT, padx=2, pady=2)
+        self.lbl_conversion_selection.pack(side=LEFT, padx=(27, 0), pady=2)
+        self.bttn_hide.pack(side=LEFT, padx=4, pady=2)
         self.bttn_extract.pack(side=LEFT, padx=2, pady=2)
         self.tlbr_convert_selection.pack(side=TOP, fill=X)
 
@@ -287,12 +325,23 @@ class StegoGui(Frame):
         Purpose:
             Validates and decodes image if valid
         """
-        StegoProcessor.extract_img(self.img_carrier_hldr, self.img_secret_hldr, "")
+        password = self.txtb_pass.get("1.0", 'end-1c')
+        StegoProcessor.extract_img(self.img_carrier_hldr, password)
 
     def encode_img(self):
         """
         Purpose:
             Validates and hides image if valid
         """
-        StegoProcessor.hide_img(self.img_carrier_hldr, self.img_secret_hldr, self.img_carrier_hldr, "test", "fake_filename.bmp")
+        password = self.txtb_pass.get("1.0", 'end-1c')
+        new_filename = self.txtb_new_img_filename.get("1.0", 'end-1c')
+        stego_filename = self.txtb_stego_img_filename.get("1.0", 'end-1c')
+
+        if password != "" and new_filename != "" and stego_filename != "":
+            StegoProcessor.hide_img(self.img_carrier_hldr, self.img_secret_hldr, new_filename, stego_filename, password)
+        else:
+            # todo: print error msg
+            print("FAILURE")
+            x = 2
+
 
