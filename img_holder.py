@@ -1,6 +1,7 @@
 from enum import Enum
 import os
 
+
 class ImageType(Enum):
     """
     Purpose:
